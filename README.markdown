@@ -4,6 +4,8 @@ A tiny client for the http://clojuredocs.org API
 
 ## Usage
 
+    (use 'cd-client.core)
+    
     (examples "clojure.core" "map")
     (search "pmap")
     (search "clojure.core" "map")
