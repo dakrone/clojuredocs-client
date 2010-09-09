@@ -4,7 +4,7 @@
 
 
 ; For testing purposes use localhost:8080
-(def *clojuredocs-root* "http://clojuredocs.org")
+(def *clojuredocs-root* "http://api.clojuredocs.org")
 ;(def *clojuredocs-root* "http://localhost:8080")
 
 (def *examples-api*     (str *clojuredocs-root* "/examples/"))
