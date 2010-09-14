@@ -13,10 +13,27 @@
 (def *seealso-api*      (str *clojuredocs-root* "/see-also/"))
 
 
+(defn format-examples
+  [examples]
+  (map (fn
+	 [ex]
+	 (let [body (:body ex)]
+	   (assoc ex :body (-> body
+			       (.replaceAll "<pre>" "")
+			       (.replaceAll "</pre>" "")
+			       (.replaceAll "<p>" "")
+			       (.replaceAll "</p>" "")
+			       (.replaceAll "&gt;" ">")
+			       (.replaceAll "<br>" "")
+			       (.replaceAll "<br/>" "")
+			       (.replaceAll "<br />" "")
+			       (.replaceAll "\\\\r\\\\n" "\\\\n"))))) examples))
+
+
 (defn examples
   "Return examples for a given namespace and method name."
   [ns name]
-  (json/decode-from-str (:body (http/get (str *examples-api* ns "/" name)))))
+  (format-examples (json/decode-from-str (:body (http/get (str *examples-api* ns "/" name))))))
 
 
 (defn search
@@ -30,7 +47,8 @@
 (defn comments
   "Return comments for a given namespace and method name."
   [ns name]
-  (json/decode-from-str (:body (http/get (str *comments-api* ns "/" name)))))
+  (format-examples
+   (json/decode-from-str (:body (http/get (str *comments-api* ns "/" name))))))
 
 
 (defn see-also
