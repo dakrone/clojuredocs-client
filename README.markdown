@@ -36,6 +36,12 @@ Browse to the url for a method in your default browser:
     (browse-to "clojure.core" "map")
     (browse-to map)
 
+## As a dependency:
+
+For Leiningen:
+
+    [org.thnetos/cd-client "0.2.0"]
+
 ## Installation
 
     lein deps
