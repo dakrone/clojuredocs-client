@@ -6,14 +6,39 @@ A tiny client for the http://clojuredocs.org API
 
     (use 'cd-client.core)
     
+Examples work with strings for the ns and name as well as just a
+method. Use 'pr-examples' to pretty-print a list of all examples
+for a method.
+
     (examples "clojure.core" "map")
+    (examples map)
+    (pr-examples map) ; pretty-prints the examples
+
+Search for a method using just the name or a namespace and name.
+
     (search "pmap")
     (search "clojure.core" "map")
+
+Comments works just like examples do, with strings, a var and pretty-
+printing.
+
     (comments "clojure.contrib.json" "read-json")
+    (comments read-json)
+    (pr-comments read-json) ; pretty-prints the comments
+
+See-also works with either strings for ns/name or a method var.
+
     (see-also "clojure.test" "are")
+    (see-also are)
+
+Browse to the url for a method in your default browser:
+
+    (browse-to "clojure.core" "map")
+    (browse-to map)
 
 ## Installation
 
+    lein deps
     lein jar
 
 ## License
