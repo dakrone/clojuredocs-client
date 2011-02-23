@@ -84,42 +84,6 @@
     (println "Taken from" (:url res))))
 
 
-;; Examples (!) of using pr-examples.  These same examples should also
-;; work for the macros examples, comments, pr-comments, see-also, and
-;; browse-to.
-
-;; (require 'cd-client.core)
-;;
-;; Let us save ourselves some typing:
-;;
-;; (defmacro ex [name] `(cd-client.core/pr-examples ~name))
-;;
-;; Syntax symbols like catch, finally:
-;;
-;; (ex catch)
-;;
-;; Special forms like do, if, let, etc.:
-;;
-;; (ex let)
-;;
-;; Macros like for, areduce, etc.:
-;;
-;; (ex for)
-;;
-;; Plain old functions, of course:
-;;
-;; (ex map)
-;;
-;; and in any namespace that clojuredocs has documentation for:
-;;
-;; (ex clojure.string/replace)
-;;
-;; And since it uses Clojure's symbol lookup methods, you can use
-;; abbreviations just like if you were using the symbols normally:
-;;
-;; (require '[clojure.string :as str])
-;; (ex str/join)
-
 (defmacro pr-examples
   "Given an (unquoted) var, fn, macro, special form, or a namespace and name (as strings), pretty-print all the examples for it from clojuredocs"
   ([name]
