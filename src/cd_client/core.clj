@@ -33,6 +33,8 @@
       (.replaceAll "<p>" "")
       (.replaceAll "</p>" "")
       (.replaceAll "&gt;" ">")
+      (.replaceAll "&lt;" "<")
+      (.replaceAll "&amp;" "&")
       (.replaceAll "<br>" "")
       (.replaceAll "<br/>" "")
       (.replaceAll "<br />" "")
@@ -57,7 +59,9 @@
    :else
     (let [nspace (find-ns name)]
       (if nspace
-        `(println "No usage examples for namespaces as a whole like" '~name "\nTry a particular symbol in a namespace, e.g. clojure.string/join")
+        `(println "No usage examples for namespaces as a whole like" '~name
+                  "\nTry a particular symbol in a namespace,"
+                  "e.g. clojure.string/join")
         `(call-with-ns-and-name ~fn (var ~name))))))
 
 
@@ -85,7 +89,8 @@
     (doseq [ex (:examples res)]
       (println "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
       (println)
-      (println " " (string/replace (:body ex) #"\n" "\n  "))
+      (println " " (-> (remove-markdown (:body ex))
+                       (string/replace #"\n" "\n  ")))
       (println)
       (println "  *** Last Updated:" (:updated_at ex))
       (println))
@@ -128,7 +133,7 @@
 (defn pr-comments-core
   "Given a namespace and name (as strings), pretty-print all the comments for it from clojuredocs"
   [ns name]
-  (let [res (comments ns name)]
+  (let [res (comments-core ns name)]
     (println)
     (println "======================================== vvv")
     (doseq [ex res]
