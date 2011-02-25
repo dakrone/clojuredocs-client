@@ -30,24 +30,46 @@
       (.replaceAll "\\\\r\\\\n" "\\\\n")))
 
 
-(defn examples
-  "Return examples for a given namespace and method name."
-  ([v]
-     (let [m (meta v)
-           ns (str (.name (:ns m)))
-           name (str (:name m))]
-       (examples ns name)))
-  ([ns name]
-     (json/decode-from-str (:body (http/get (str *examples-api* ns "/" name))))))
-
-
-(defn pr-examples
-  "Given a var, pretty-print all the examples for it from clojuredocs"
-  [v]
-  (let [res (examples v)
-        m (meta v)
+(defn call-with-ns-and-name
+  [f v]
+  (let [m (meta v)
         ns (str (.name (:ns m)))
         name (str (:name m))]
+    (f ns name)))
+
+
+(defmacro handle-fns-etc
+  [name fn]
+  (cond
+   (special-form-anchor `~name)
+   `(~fn "clojure.core" (str '~name))
+   (syntax-symbol-anchor `~name)
+   `(~fn "clojure.core" (str '~name))
+   :else
+    (let [nspace (find-ns name)]
+      (if nspace
+        `(println "No usage examples for namespaces as a whole like" '~name "\nTry a particular symbol in a namespace, e.g. clojure.string/join")
+        `(call-with-ns-and-name ~fn (var ~name))))))
+
+
+(defn examples-core
+  "Return examples from clojuredocs for a given namespace and name (as strings)"
+  [ns name]
+  (json/decode-from-str (:body (http/get (str *examples-api* ns "/" name)))))
+
+
+(defmacro examples
+  "Return examples from clojuredocs for a given (unquoted) var, fn, macro, special form, or a namespace and name (as strings)"
+  ([name]
+     `(handle-fns-etc ~name examples-core))
+  ([ns name]
+     `(examples-core ~ns ~name)))
+
+
+(defn pr-examples-core
+  "Given a namespace and name (as strings), pretty-print all the examples for it from clojuredocs"
+  [ns name]
+  (let [res (examples-core ns name)]
     (println)
     (println "======================================== vvv")
     (doseq [ex (:examples res)]
@@ -62,6 +84,14 @@
     (println "Taken from" (:url res))))
 
 
+(defmacro pr-examples
+  "Given an (unquoted) var, fn, macro, special form, or a namespace and name (as strings), pretty-print all the examples for it from clojuredocs"
+  ([name]
+     `(handle-fns-etc ~name pr-examples-core))
+  ([ns name]
+     `(pr-examples-core ~ns ~name)))
+
+
 (defn search
   "Search for a method name within an (optional) namespace"
   ([name]
@@ -70,24 +100,24 @@
    (json/decode-from-str (:body (http/get (str *search-api* ns "/" name))))))
 
 
-(defn comments
-  "Return comments for a given namespace and method name."
-  ([v]
-     (let [m (meta v)
-           ns (str (.name (:ns m)))
-           name (str (:name m))]
-       (comments ns name)))
+(defn comments-core
+  "Return comments from clojuredocs for a given namespace and name (as strings)"
+  [ns name]
+  (json/decode-from-str (:body (http/get (str *comments-api* ns "/" name)))))
+
+
+(defmacro comments
+  "Return comments from clojuredocs for a given (unquoted) var, fn, macro, special form, or namespace and name (as strings)"
+  ([name]
+     `(handle-fns-etc ~name comments-core))
   ([ns name]
-     (json/decode-from-str (:body (http/get (str *comments-api* ns "/" name))))))
+     `(comments-core ~ns ~name)))
 
 
-(defn pr-comments
-  "Given a var, pretty-print all the comments for it from clojuredocs"
-  [v]
-  (let [res (comments v)
-        m (meta v)
-        ns (str (.name (:ns m)))
-        name (str (:name m))]
+(defn pr-comments-core
+  "Given a namespace and name (as strings), pretty-print all the comments for it from clojuredocs"
+  [ns name]
+  (let [res (comments ns name)]
     (println)
     (println "======================================== vvv")
     (doseq [ex res]
@@ -105,24 +135,38 @@
     #_(println "Taken from" (:url res))))
 
 
-(defn see-also
-  "Return methods to 'see also' for a given namespace and method name."
-  ([v]
-     (let [m (meta v)
-           ns (str (.name (:ns m)))
-           name (str (:name m))]
-       (see-also ns name)))
+(defmacro pr-comments
+  "Given a (unquoted) var, fn, macro, special form, or a namespace and name (as strings), pretty-print all the comments for it from clojuredocs"
+  ([name]
+     `(handle-fns-etc ~name pr-comments-core))
+  ([ns name]
+     `(pr-comments-core ~ns ~name)))
+
+
+(defn see-also-core
+  "Return 'see also' info from clojuredocs for a given namespace and name (as strings)"
   ([ns name]
      (json/decode-from-str (:body (http/get (str *seealso-api* ns "/" name))))))
 
-(defn browse-to
-  "Open a browser to the clojuredocs page for a given namespace and method name."
-  ([v]
-     (let [m (meta v)
-           ns (str (.name (:ns m)))
-           name (str (:name m))]
-       (browse-to ns name)))
+
+(defmacro see-also
+  "Given a (unquoted) var, fn, macro, special form, or a namespace and name (as strings), show the 'see also' for it from clojuredocs"
+  ([name]
+     `(handle-fns-etc ~name see-also-core))
+  ([ns name]
+     `(see-also-core ~ns ~name)))
+
+
+(defn browse-to-core
+  "Open a browser to the clojuredocs page for a given namespace and name (as strings)"
   ([ns name]
      (when-let [url (:url (examples ns name))]
        (browse-url url))))
 
+
+(defmacro browse-to
+  "Given a (unquoted) var, fn, macro, or special form, or a namespace and name (as strings), open a browser to the clojuredocs page for it"
+  ([name]
+     `(handle-fns-etc ~name browse-to-core))
+  ([ns name]
+     `(browse-to-core ~ns ~name)))

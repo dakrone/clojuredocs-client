@@ -6,27 +6,34 @@ A tiny client for the http://clojuredocs.org API
 
     (use 'cd-client.core)
     
-Examples work with strings for the ns and name as well as just a
-method. Use 'pr-examples' to pretty-print a list of all examples
-for a method.
+Examples work with strings for the ns and name, as well as just a
+symbol (no quoting needed).  The symbol can be of a special form
+(e.g. let, try, catch), macros (e.g. for, areduce), or functions.  Use
+'pr-examples' to pretty-print a list of all examples for a method.
 
     (examples "clojure.core" "map")
     (examples map)
     (pr-examples map) ; pretty-prints the examples
+    (pr-examples clojure.string/join)
+
+If you like even shorter names for interactive use:
+
+    (defmacro ex [sym] `(pr-examples ~sym))
+    (ex let)
 
 Search for a method using just the name or a namespace and name.
 
     (search "pmap")
     (search "clojure.core" "map")
 
-Comments works just like examples do, with strings, a var and pretty-
-printing.
+Comments works just like examples do, with strings, a symbol, and
+pretty-printing.
 
     (comments "clojure.contrib.json" "read-json")
     (comments read-json)
     (pr-comments read-json) ; pretty-prints the comments
 
-See-also works with either strings for ns/name or a method var.
+See-also works with either strings for ns/name or a symbol.
 
     (see-also "clojure.test" "are")
     (see-also are)
