@@ -19,9 +19,18 @@
   "Replace some special characters in symbol names in order to construct a URL that works on clojuredocs.org"
   [name]
   (-> name
+      ;; TBD: Rather than adding things here as the crop up, it might
+      ;; be better to replace everything that is not on a short list
+      ;; of "known good" characters.  Here are the ones that seem to
+      ;; work fine so far, without substitution in the API URLs:
+      ;; a-z  A-Z  0-9  - * ? ! _ = $
+      ;; I'm not sure if / and + are working right now (Mar 3 2011)
       (string/replace "." "_dot")
       (string/replace "?" "_q")
-      (string/replace "/" "_")))
+      (string/replace "/" "_")
+      (string/replace ">" "%3E")
+      (string/replace "<" "%3C")
+      (string/replace "|" "%7C")))
 
 
 (defn remove-markdown
