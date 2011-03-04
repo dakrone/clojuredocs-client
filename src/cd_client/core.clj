@@ -15,6 +15,15 @@
 (def *seealso-api*      (str *clojuredocs-root* "/see-also/"))
 
 
+(defn- fixup-name-url
+  "Replace some special characters in symbol names in order to construct a URL that works on clojuredocs.org"
+  [name]
+  (-> name
+      (string/replace "." "_dot")
+      (string/replace "?" "_q")
+      (string/replace "/" "_")))
+
+
 (defn remove-markdown
   "Remove basic markdown syntax from a string."
   [text]
@@ -24,6 +33,8 @@
       (.replaceAll "<p>" "")
       (.replaceAll "</p>" "")
       (.replaceAll "&gt;" ">")
+      (.replaceAll "&lt;" "<")
+      (.replaceAll "&amp;" "&")
       (.replaceAll "<br>" "")
       (.replaceAll "<br/>" "")
       (.replaceAll "<br />" "")
@@ -48,14 +59,17 @@
    :else
     (let [nspace (find-ns name)]
       (if nspace
-        `(println "No usage examples for namespaces as a whole like" '~name "\nTry a particular symbol in a namespace, e.g. clojure.string/join")
+        `(println "No usage examples for namespaces as a whole like" '~name
+                  "\nTry a particular symbol in a namespace,"
+                  "e.g. clojure.string/join")
         `(call-with-ns-and-name ~fn (var ~name))))))
 
 
 (defn examples-core
   "Return examples from clojuredocs for a given namespace and name (as strings)"
   [ns name]
-  (json/decode-from-str (:body (http/get (str *examples-api* ns "/" name)))))
+  (json/decode-from-str (:body (http/get (str *examples-api* ns "/"
+                                              (fixup-name-url name))))))
 
 
 (defmacro examples
@@ -75,12 +89,13 @@
     (doseq [ex (:examples res)]
       (println "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
       (println)
-      (println " " (string/replace (:body ex) #"\n" "\n  "))
+      (println " " (-> (remove-markdown (:body ex))
+                       (string/replace #"\n" "\n  ")))
       (println)
       (println "  *** Last Updated:" (:updated_at ex))
       (println))
     (println "======================================== ^^^")
-    (println (count res) "example(s) found for" (str ns "/" name))
+    (println (count (:examples res)) "example(s) found for" (str ns "/" name))
     (println "Taken from" (:url res))))
 
 
@@ -103,7 +118,8 @@
 (defn comments-core
   "Return comments from clojuredocs for a given namespace and name (as strings)"
   [ns name]
-  (json/decode-from-str (:body (http/get (str *comments-api* ns "/" name)))))
+  (json/decode-from-str (:body (http/get (str *comments-api* ns "/"
+                                              (fixup-name-url name))))))
 
 
 (defmacro comments
@@ -117,7 +133,7 @@
 (defn pr-comments-core
   "Given a namespace and name (as strings), pretty-print all the comments for it from clojuredocs"
   [ns name]
-  (let [res (comments ns name)]
+  (let [res (comments-core ns name)]
     (println)
     (println "======================================== vvv")
     (doseq [ex res]
@@ -146,7 +162,8 @@
 (defn see-also-core
   "Return 'see also' info from clojuredocs for a given namespace and name (as strings)"
   ([ns name]
-     (json/decode-from-str (:body (http/get (str *seealso-api* ns "/" name))))))
+     (json/decode-from-str (:body (http/get (str *seealso-api* ns "/"
+                                                 (fixup-name-url name)))))))
 
 
 (defmacro see-also
