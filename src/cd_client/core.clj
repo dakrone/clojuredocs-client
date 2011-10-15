@@ -1,18 +1,18 @@
 (ns cd-client.core
-  (:require [org.danlarkin.json :as json]
+  (:require [clojure.data.json :as json]
             [clj-http.client :as http]
             [clojure.string :as string])
   (:use     [clojure.java.browse :only [browse-url]]))
 
 
 ; For testing purposes use localhost:8080
-(def *clojuredocs-root* "http://api.clojuredocs.org")
-;(def *clojuredocs-root* "http://localhost:8080")
+(def ^:dynamic *clojuredocs-root* "http://api.clojuredocs.org")
+;(def ^:dynamic *clojuredocs-root* "http://localhost:8080")
 
-(def *examples-api*     (str *clojuredocs-root* "/examples/"))
-(def *search-api*       (str *clojuredocs-root* "/search/"))
-(def *comments-api*     (str *clojuredocs-root* "/comments/"))
-(def *seealso-api*      (str *clojuredocs-root* "/see-also/"))
+(def ^:dynamic *examples-api*     (str *clojuredocs-root* "/examples/"))
+(def ^:dynamic *search-api*       (str *clojuredocs-root* "/search/"))
+(def ^:dynamic *comments-api*     (str *clojuredocs-root* "/comments/"))
+(def ^:dynamic *seealso-api*      (str *clojuredocs-root* "/see-also/"))
 
 
 (defn- fixup-name-url
@@ -52,9 +52,7 @@
 (defmacro handle-fns-etc
   [name fn]
   (cond
-   (special-form-anchor `~name)
-   `(~fn "clojure.core" (str '~name))
-   (syntax-symbol-anchor `~name)
+   (special-symbol? `~name)
    `(~fn "clojure.core" (str '~name))
    :else
     (let [nspace (find-ns name)]
@@ -68,7 +66,7 @@
 (defn examples-core
   "Return examples from clojuredocs for a given namespace and name (as strings)"
   [ns name]
-  (json/decode-from-str (:body (http/get (str *examples-api* ns "/"
+  (json/read-json (:body (http/get (str *examples-api* ns "/"
                                               (fixup-name-url name))))))
 
 
@@ -110,15 +108,15 @@
 (defn search
   "Search for a method name within an (optional) namespace"
   ([name]
-   (json/decode-from-str (:body (http/get (str *search-api* name)))))
+   (json/read-json (:body (http/get (str *search-api* name)))))
   ([ns name]
-   (json/decode-from-str (:body (http/get (str *search-api* ns "/" name))))))
+   (json/read-json (:body (http/get (str *search-api* ns "/" name))))))
 
 
 (defn comments-core
   "Return comments from clojuredocs for a given namespace and name (as strings)"
   [ns name]
-  (json/decode-from-str (:body (http/get (str *comments-api* ns "/"
+  (json/read-json (:body (http/get (str *comments-api* ns "/"
                                               (fixup-name-url name))))))
 
 
@@ -162,7 +160,7 @@
 (defn see-also-core
   "Return 'see also' info from clojuredocs for a given namespace and name (as strings)"
   ([ns name]
-     (json/decode-from-str (:body (http/get (str *seealso-api* ns "/"
+     (json/read-json (:body (http/get (str *seealso-api* ns "/"
                                                  (fixup-name-url name)))))))
 
 
