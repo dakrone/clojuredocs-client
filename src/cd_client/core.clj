@@ -51,10 +51,8 @@
 
 (defmacro handle-fns-etc
   [name fn]
-  (cond
-   (special-symbol? `~name)
-   `(~fn "clojure.core" (str '~name))
-   :else
+  (if (special-symbol? `~name)
+    `(~fn "clojure.core" (str '~name))
     (let [nspace (find-ns name)]
       (if nspace
         `(println "No usage examples for namespaces as a whole like" '~name
@@ -66,8 +64,10 @@
 (defn examples-core
   "Return examples from clojuredocs for a given namespace and name (as strings)"
   [ns name]
-  (json/read-json (:body (http/get (str *examples-api* ns "/"
-                                              (fixup-name-url name))))))
+  (json/read-json
+   (:body (http/get (str *examples-api* ns "/"
+                         (fixup-name-url name))
+                    {:accept-encoding ""}))))
 
 
 (defmacro examples
