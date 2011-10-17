@@ -29,14 +29,14 @@ Search for a method using just the name or a namespace and name.
 Comments works just like examples do, with strings, a symbol, and
 pretty-printing.
 
-    (comments "clojure.contrib.json" "read-json")
+    (comments "clojure.java.io" "reader")
     (comments read-json)
     (pr-comments read-json) ; pretty-prints the comments
 
 See-also works with either strings for ns/name or a symbol.
 
     (see-also "clojure.test" "are")
-    (see-also are)
+    (see-also map)
 
 Browse to the url for a method in your default browser:
 
@@ -47,7 +47,7 @@ Browse to the url for a method in your default browser:
 
 For Leiningen:
 
-    [org.thnetos/cd-client "0.3.0"]
+    [org.thnetos/cd-client "0.3.1"]
 
 ## Installation
 
