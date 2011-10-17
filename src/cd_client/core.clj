@@ -60,14 +60,13 @@
                   "e.g. clojure.string/join")
         `(call-with-ns-and-name ~fn (var ~name))))))
 
+(defn- get-simple [url]
+  (json/read-json (:body (http/get url {:accept-encoding ""}))))
 
 (defn examples-core
   "Return examples from clojuredocs for a given namespace and name (as strings)"
   [ns name]
-  (json/read-json
-   (:body (http/get (str *examples-api* ns "/"
-                         (fixup-name-url name))
-                    {:accept-encoding ""}))))
+  (get-simple (str *examples-api* ns "/" (fixup-name-url name))))
 
 
 (defmacro examples
@@ -107,17 +106,14 @@
 
 (defn search
   "Search for a method name within an (optional) namespace"
-  ([name]
-   (json/read-json (:body (http/get (str *search-api* name)))))
-  ([ns name]
-   (json/read-json (:body (http/get (str *search-api* ns "/" name))))))
+  ([name]    (get-simple (str *search-api* name)))
+  ([ns name] (get-simple (str *search-api* ns "/" name))))
 
 
 (defn comments-core
   "Return comments from clojuredocs for a given namespace and name (as strings)"
   [ns name]
-  (json/read-json (:body (http/get (str *comments-api* ns "/"
-                                              (fixup-name-url name))))))
+  (get-simple (str *comments-api* ns "/" (fixup-name-url name))))
 
 
 (defmacro comments
@@ -160,8 +156,7 @@
 (defn see-also-core
   "Return 'see also' info from clojuredocs for a given namespace and name (as strings)"
   ([ns name]
-     (json/read-json (:body (http/get (str *seealso-api* ns "/"
-                                                 (fixup-name-url name)))))))
+     (get-simple (str *seealso-api* ns "/" (fixup-name-url name)))))
 
 
 (defmacro see-also
