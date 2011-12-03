@@ -7,16 +7,16 @@
 
 
 ;; For testing purposes use localhost:8080
-(def ^:dynamic *clojuredocs-root* "http://api.clojuredocs.org")
-;;(def ^:dynamic *clojuredocs-root* "http://localhost:8080")
+(def ^:private ^:dynamic *clojuredocs-root* "http://api.clojuredocs.org")
+;;(def ^:private ^:dynamic *clojuredocs-root* "http://localhost:8080")
 
-(def ^:dynamic *examples-api*     (str *clojuredocs-root* "/examples/"))
-(def ^:dynamic *search-api*       (str *clojuredocs-root* "/search/"))
-(def ^:dynamic *comments-api*     (str *clojuredocs-root* "/comments/"))
-(def ^:dynamic *seealso-api*      (str *clojuredocs-root* "/see-also/"))
+(def ^:private ^:dynamic *examples-api* (str *clojuredocs-root* "/examples/"))
+(def ^:private ^:dynamic *search-api*   (str *clojuredocs-root* "/search/"))
+(def ^:private ^:dynamic *comments-api* (str *clojuredocs-root* "/comments/"))
+(def ^:private ^:dynamic *seealso-api*  (str *clojuredocs-root* "/see-also/"))
 
 
-(def ^:dynamic *debug-flags* (ref #{}))
+(def ^:private ^:dynamic *debug-flags* (ref #{}))
 
 (defn enable-debug-flags [& keywords]
   (dosync (alter *debug-flags*
@@ -31,7 +31,7 @@
 
 ;; Use one of the functions set-local-mode! or set-web-mode! below to
 ;; change the mode, and show-mode to show the current mode.
-(def ^:dynamic *cd-client-mode* (ref {:source :web}))
+(def ^:private ^:dynamic *cd-client-mode* (ref {:source :web}))
 
 
 (defn set-local-mode! [fname]
@@ -83,7 +83,7 @@
                    \| "%7C" }))
 
 
-(defn remove-markdown
+(defn- remove-markdown
   "Remove basic markdown syntax from a string."
   [text]
   (-> text
@@ -151,6 +151,15 @@
   ([ns name]
      `(examples-core ~ns ~name)))
 
+
+;; Can we make pr-examples-core private, to avoid polluting namespace
+;; of those who wish to use this namespace?  Trying defn- or defn
+;; ^:private instead of defn for pr-examples-core, then this fails:
+;;
+;; (require '[cd-client.core :as c])
+;; (c/pr-examples *)
+;;
+;; saying that cd-client.core/pr-examples-core is not public.
 
 (defn pr-examples-core
   "Given a namespace and name (as strings), pretty-print all the examples for it
