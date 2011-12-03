@@ -1,24 +1,24 @@
 (ns cd-client.core
-  (:require [org.danlarkin.json :as json]
+  (:use [clojure.java.browse :only [browse-url]]
+        [clojure.pprint :only [pprint]])
+  (:require [cheshire.core :as json]
             [clj-http.client :as http]
-            [clojure.string :as string])
-  (:use     [clojure.java.browse :only [browse-url]]
-            [clojure.pprint :only [pprint]]))
+            [clojure.string :as string]))
 
 
-; For testing purposes use localhost:8080
-(def *clojuredocs-root* "http://api.clojuredocs.org")
-;(def *clojuredocs-root* "http://localhost:8080")
+;; For testing purposes use localhost:8080
+(def ^:dynamic *clojuredocs-root* "http://api.clojuredocs.org")
+;;(def ^:dynamic *clojuredocs-root* "http://localhost:8080")
 
-(def *examples-api*     (str *clojuredocs-root* "/examples/"))
-(def *search-api*       (str *clojuredocs-root* "/search/"))
-(def *comments-api*     (str *clojuredocs-root* "/comments/"))
-(def *seealso-api*      (str *clojuredocs-root* "/see-also/"))
+(def ^:dynamic *examples-api*     (str *clojuredocs-root* "/examples/"))
+(def ^:dynamic *search-api*       (str *clojuredocs-root* "/search/"))
+(def ^:dynamic *comments-api*     (str *clojuredocs-root* "/comments/"))
+(def ^:dynamic *seealso-api*      (str *clojuredocs-root* "/see-also/"))
 
 
 ;; Use one of the functions set-local-mode! or set-web-mode! below to
 ;; change the mode, and show-mode to show the current mode.
-(def *cd-client-mode* (ref {:source :web}))
+(def ^:dynamic *cd-client-mode* (ref {:source :web}))
 
 
 (defn set-local-mode! [fname]
@@ -52,21 +52,22 @@
 
 
 (defn- fixup-name-url
-  "Replace some special characters in symbol names in order to construct a URL that works on clojuredocs.org"
+  "Replace some special characters in symbol names in order to construct a URL
+  that works on clojuredocs.org"
   [name]
-  (-> name
-      ;; TBD: Rather than adding things here as the crop up, it might
-      ;; be better to replace everything that is not on a short list
-      ;; of "known good" characters.  Here are the ones that seem to
-      ;; work fine so far, without substitution in the API URLs:
-      ;; a-z  A-Z  0-9  - * ? ! _ = $
-      ;; I'm not sure if / and + are working right now (Mar 3 2011)
-      (string/replace "." "_dot")
-      (string/replace "?" "_q")
-      (string/replace "/" "_")
-      (string/replace ">" "%3E")
-      (string/replace "<" "%3C")
-      (string/replace "|" "%7C")))
+  ;; TBD: Rather than adding things here as the crop up, it might be
+  ;; better to replace everything that is not on a short list of
+  ;; "known good" characters.  Here are the ones that seem to work
+  ;; fine so far, without substitution in the API URLs:
+  ;; a-z  A-Z  0-9  - * ? ! _ = $
+  ;; I'm not sure if / and + are working right now (Mar 3 2011)
+  (string/escape name
+                 { \. "_dot",
+                   \? "_q",
+                   \/ "_",
+                   \> "%3E",
+                   \< "%3C",
+                   \| "%7C" }))
 
 
 (defn remove-markdown
@@ -96,12 +97,8 @@
 
 (defmacro handle-fns-etc
   [name fn]
-  (cond
-   (special-form-anchor `~name)
+  (if (special-symbol? `~name)
    `(~fn "clojure.core" (str '~name))
-   (syntax-symbol-anchor `~name)
-   `(~fn "clojure.core" (str '~name))
-   :else
     (let [nspace (find-ns name)]
       (if nspace
         `(println "No usage examples for namespaces as a whole like" '~name
@@ -109,26 +106,28 @@
                   "e.g. clojure.string/join")
         `(call-with-ns-and-name ~fn (var ~name))))))
 
+(defn- get-simple [url]
+  (json/decode (:body (http/get url {:accept-encoding ""})) true))
 
 (defn examples-core
   "Return examples from clojuredocs for a given namespace and name (as strings)"
   [ns name]
   (let [mode @*cd-client-mode*]
     (if (= :web (:source mode))
-      (json/decode-from-str (:body (http/get (str *examples-api* ns "/"
-                                                  (fixup-name-url name)))))
+      (get-simple (str *examples-api* ns "/" (fixup-name-url name)))
       ;; Make examples-core return the value that I wish the
-      ;; json/decode-from-str call above did when there are no
-      ;; examples, i.e. the URL and an empty vector of examples.  Then
-      ;; I can test browse-to to see if it will work unmodified for
-      ;; names that have no examples.
+      ;; json/decode call above did when there are no examples,
+      ;; i.e. the URL and an empty vector of examples.  Then I can
+      ;; test browse-to to see if it will work unmodified for names
+      ;; that have no examples.
       (let [name-info (get (:data mode) (str ns "/" name))]
         {:examples (:examples name-info),
          :url (:url name-info)}))))
 
 
 (defmacro examples
-  "Return examples from clojuredocs for a given (unquoted) var, fn, macro, special form, or a namespace and name (as strings)"
+  "Return examples from clojuredocs for a given (unquoted) var, fn, macro,
+  special form, or a namespace and name (as strings)"
   ([name]
      `(handle-fns-etc ~name examples-core))
   ([ns name]
@@ -136,7 +135,8 @@
 
 
 (defn pr-examples-core
-  "Given a namespace and name (as strings), pretty-print all the examples for it from clojuredocs"
+  "Given a namespace and name (as strings), pretty-print all the examples for it
+  from clojuredocs"
   [ns name]
   (let [res (examples-core ns name)]
     (println)
@@ -155,7 +155,8 @@
 
 
 (defmacro pr-examples
-  "Given an (unquoted) var, fn, macro, special form, or a namespace and name (as strings), pretty-print all the examples for it from clojuredocs"
+  "Given an (unquoted) var, fn, macro, special form, or a namespace and name (as
+  strings), pretty-print all the examples for it from clojuredocs"
   ([name]
      `(handle-fns-etc ~name pr-examples-core))
   ([ns name]
@@ -166,10 +167,8 @@
 
 (defn search
   "Search for a method name within an (optional) namespace"
-  ([name]
-   (json/decode-from-str (:body (http/get (str *search-api* name)))))
-  ([ns name]
-   (json/decode-from-str (:body (http/get (str *search-api* ns "/" name))))))
+  ([name]    (get-simple (str *search-api* name)))
+  ([ns name] (get-simple (str *search-api* ns "/" name))))
 
 
 (defn comments-core
@@ -177,14 +176,14 @@
   [ns name]
   (let [mode @*cd-client-mode*]
     (if (= :web (:source mode))
-      (json/decode-from-str (:body (http/get (str *comments-api* ns "/"
-                                                  (fixup-name-url name)))))
+      (get-simple (str *comments-api* ns "/" (fixup-name-url name)))
       (let [name-info (get (:data mode) (str ns "/" name))]
         (:comments name-info)))))
 
 
 (defmacro comments
-  "Return comments from clojuredocs for a given (unquoted) var, fn, macro, special form, or namespace and name (as strings)"
+  "Return comments from clojuredocs for a given (unquoted) var, fn, macro,
+  special form, or namespace and name (as strings)"
   ([name]
      `(handle-fns-etc ~name comments-core))
   ([ns name]
@@ -192,7 +191,8 @@
 
 
 (defn pr-comments-core
-  "Given a namespace and name (as strings), pretty-print all the comments for it from clojuredocs"
+  "Given a namespace and name (as strings), pretty-print all the comments for it
+  from clojuredocs"
   [ns name]
   (let [res (comments-core ns name)]
     (println)
@@ -208,12 +208,13 @@
       (println))
     (println "======================================== ^^^")
     (println (count res) "comment(s) found for" (str ns "/" name))
-    ; no URL in comments yet
+    ;; no URL in comments yet
     #_(println "Taken from" (:url res))))
 
 
 (defmacro pr-comments
-  "Given a (unquoted) var, fn, macro, special form, or a namespace and name (as strings), pretty-print all the comments for it from clojuredocs"
+  "Given a (unquoted) var, fn, macro, special form, or a namespace and name (as
+  strings), pretty-print all the comments for it from clojuredocs"
   ([name]
      `(handle-fns-etc ~name pr-comments-core))
   ([ns name]
@@ -225,14 +226,14 @@
   [ns name]
   (let [mode @*cd-client-mode*]
     (if (= :web (:source mode))
-     (json/decode-from-str (:body (http/get (str *seealso-api* ns "/"
-                                                  (fixup-name-url name)))))
+      (get-simple (str *seealso-api* ns "/" (fixup-name-url name)))
       (let [name-info (get (:data mode) (str ns "/" name))]
         (:see-alsos name-info)))))
 
 
 (defmacro see-also
-  "Given a (unquoted) var, fn, macro, special form, or a namespace and name (as strings), show the 'see also' for it from clojuredocs"
+  "Given a (unquoted) var, fn, macro, special form, or a namespace and name (as
+  strings), show the 'see also' for it from clojuredocs"
   ([name]
      `(handle-fns-etc ~name see-also-core))
   ([ns name]
@@ -240,14 +241,16 @@
 
 
 (defn browse-to-core
-  "Open a browser to the clojuredocs page for a given namespace and name (as strings)"
+  "Open a browser to the clojuredocs page for a given namespace and name
+  (as strings)"
   ([ns name]
      (when-let [url (:url (examples-core ns name))]
        (browse-url url))))
 
 
 (defmacro browse-to
-  "Given a (unquoted) var, fn, macro, or special form, or a namespace and name (as strings), open a browser to the clojuredocs page for it"
+  "Given a (unquoted) var, fn, macro, or special form, or a namespace and name
+  (as strings), open a browser to the clojuredocs page for it"
   ([name]
      `(handle-fns-etc ~name browse-to-core))
   ([ns name]
