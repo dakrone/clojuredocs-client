@@ -16,6 +16,19 @@
 (def ^:dynamic *seealso-api*      (str *clojuredocs-root* "/see-also/"))
 
 
+(def ^:dynamic *debug-flags* (ref #{}))
+
+(defn enable-debug-flags [& keywords]
+  (dosync (alter *debug-flags*
+                 (fn [cur-val]
+                   (apply conj cur-val keywords)))))
+
+(defn disable-debug-flags [& keywords]
+  (dosync (alter *debug-flags*
+                 (fn [cur-val]
+                   (apply disj cur-val keywords)))))
+
+
 ;; Use one of the functions set-local-mode! or set-web-mode! below to
 ;; change the mode, and show-mode to show the current mode.
 (def ^:dynamic *cd-client-mode* (ref {:source :web}))
@@ -63,7 +76,7 @@
   ;; I'm not sure if / and + are working right now (Mar 3 2011)
   (string/escape name
                  { \. "_dot",
-                   \? "_q",
+                   \? "%3F",
                    \/ "_",
                    \> "%3E",
                    \< "%3C",
@@ -107,7 +120,12 @@
         `(call-with-ns-and-name ~fn (var ~name))))))
 
 (defn- get-simple [url]
-  (json/decode (:body (http/get url {:accept-encoding ""})) true))
+  (when (:show-urls @*debug-flags*)
+    (println "get-simple getting URL" url))
+  (let [http-resp (http/get url {:accept-encoding ""})]
+    (when (:show-http-resp @*debug-flags*)
+      (println "get-simple HTTP response" http-resp))
+    (json/decode (:body http-resp) true)))
 
 (defn examples-core
   "Return examples from clojuredocs for a given namespace and name (as strings)"
