@@ -104,6 +104,31 @@
       (.replaceAll "\\\\r\\\\n" "\\\\n")))
 
 
+(defn- vec-drop-last-while
+  "Like drop-while, but only for vectors, and only removes consecutive
+  items from the end that make (pred item) true.  Unlike drop-while,
+  items for which (pred item) returns nil or false will be removed
+  from the end."
+  [pred v]
+  (loop [i (dec (count v))]
+    (if (neg? i)
+      []
+      (if (pred (v i))
+        (recur (dec i))
+        (subvec v 0 (inc i))))))
+
+
+(defn- trim-line-list
+  "Break string s into lines, then remove any lines at the beginning
+  and end that are all whitespace.  Keep lines in the middle that are
+  completely whitespace, if any.  This is to help reduce the amount of
+  unneeded whitespace when printing examples."
+  [s]
+  (let [lines (string/split s #"\n")
+        lines (vec (drop-while string/blank? lines))]
+    (vec-drop-last-while string/blank? lines)))
+
+
 (defn call-with-ns-and-name
   [f v]
   (let [m (meta v)
@@ -168,21 +193,25 @@
 (defn pr-examples-core
   "Given a namespace and name (as strings), pretty-print all the examples for it
   from clojuredocs"
-  [ns name]
-  (let [res (examples-core ns name)]
-    (println)
-    (println "======================================== vvv")
-    (doseq [ex (:examples res)]
-      (println "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+  [ns name & verbose]
+  (let [res (examples-core ns name)
+        n (count (:examples res))]
+    (when (not= n 0) (println "========== vvv Examples ================"))
+    (dotimes [i n]
+      (let [ex (nth (:examples res) i)]
+        (when (not= i 0)    ; this line is a separator between examples
+          (println "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"))
+        (println " " (string/join "\n  "
+                                  (trim-line-list
+                                   (remove-markdown (:body ex)))))
+        (when verbose
+          (println "  *** Last Updated:" (:updated_at ex)))))
+    (when (not= n 0) (println "========== ^^^ Examples ================"))
+    (printf "%d example%s found for %s"
+            n (if (== 1 n) "" "s") (str ns "/" name))
       (println)
-      (println " " (-> (remove-markdown (:body ex))
-                       (string/replace #"\n" "\n  ")))
-      (println)
-      (println "  *** Last Updated:" (:updated_at ex))
-      (println))
-    (println "======================================== ^^^")
-    (println (count (:examples res)) "example(s) found for" (str ns "/" name))
-    (println "Taken from" (:url res))))
+    (when verbose
+      (println "Taken from" (:url res)))))
 
 
 (defmacro pr-examples
@@ -224,23 +253,26 @@
 (defn pr-comments-core
   "Given a namespace and name (as strings), pretty-print all the comments for it
   from clojuredocs"
-  [ns name]
-  (let [res (comments-core ns name)]
-    (println)
-    (println "======================================== vvv")
-    (doseq [ex res]
-      (println "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+  [ns name & verbose]
+  (let [res (comments-core ns name)
+        n (count res)]
+    (when (not= n 0) (println "========== vvv Comments ================"))
+    (dotimes [i n]
+      (let [ex (nth res i)]
+        (when (not= i 0)    ; this line is a separator between comments
+          (println "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"))
+        (println " " (string/join "\n  "
+                                  (-> (remove-markdown (:body ex))
+                                      (string/replace #"\r" "")
+                                      (trim-line-list))))
+        (when verbose
+          (println "  *** Last Updated:" (:updated_at ex)))))
+    (when (not= n 0) (println "========== ^^^ Comments ================"))
+    (printf "%d comment%s found for %s"
+            n (if (== 1 n) "" "s") (str ns "/" name))
       (println)
-      (println " " (-> (remove-markdown (:body ex))
-                       (string/replace #"^M" "")
-                       (string/replace #"\n" "\n  ")))
-      (println)
-      (println "  *** Last Updated:" (:updated_at ex))
-      (println))
-    (println "======================================== ^^^")
-    (println (count res) "comment(s) found for" (str ns "/" name))
     ;; no URL in comments yet
-    #_(println "Taken from" (:url res))))
+    #_(when verbose (println "Taken from" (:url res)))))
 
 
 (defmacro pr-comments
@@ -277,13 +309,13 @@
   [ns name]
   (let [res (see-also-core ns name)
         n (count res)]
-    (when (not= n 0) (println "======================================== vvv"))
+    (when (not= n 0) (println "========== vvv See also ================"))
     (doseq [sa res]
       ;; TBD: Add in namespace if and when it is added as part of the
       ;; see-also API results from the web site.
       ;(println " " (str (:ns sa) "/" (:name sa)))
       (println " " (:name sa)))
-    (when (not= n 0) (println "======================================== ^^^"))
+    (when (not= n 0) (println "========== ^^^ See also ================"))
     (printf "%d see-also%s found for %s"
             n (if (== 1 n) "" "s") (str ns "/" name))
     (println)))
