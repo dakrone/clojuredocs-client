@@ -35,9 +35,32 @@
 (def ^:private ^:dynamic *cd-client-mode* (ref {:source :web}))
 
 
-(defn set-local-mode! [fname]
-  ;; Handle errors in attempting to open the file, or as returned from
-  ;; read?
+;; Handle errors in attempting to open the file, or as returned from
+;; read?
+
+(defn set-local-mode!
+  "Change the behavior of future calls to cdoc and other documentation
+  access functions and macros in cd-client.core.  Instead of using the
+  Internet, their results will be obtained from a file.  This can be
+  useful when you do not have Internet access.  Even if you do have
+  access, you may be able to get results more quickly in local mode,
+  and you will not put load on the clojuredocs.org servers.
+
+  Use set-web-mode! if you wish to change the mode back to retrieving
+  results from the Internet, or show-mode to see which mode you are
+  in.
+
+  A snapshot file is available here:
+
+  http://github.com/jafingerhut/cd-client/TBD
+
+  Example:
+
+  user=> (set-local-mode! \"clojuredocs-snapshot-2011-12-03.txt\")
+  Read info on 3574 names from file: clojuredocs-snapshot-2011-12-03.txt
+  Snapshot time: Sat Dec 03 18:03:43 PST 2011
+  nil"
+  [fname]
   (let [x (with-open [s (java.io.PushbackReader.
                             (java.io.InputStreamReader.
                              (java.io.FileInputStream.
@@ -53,12 +76,24 @@
     (println "Snapshot time:" snapshot-time)))
 
 
-(defn set-web-mode! []
+(defn set-web-mode!
+  "Change the behavior of future calls to cdoc and other documentation
+  access functions and macros in cd-client.core.  Their results will
+  be obtained by accessing clojuredocs.org over the Internet.
+
+  See also: set-local-mode! show-mode"
+  []
   (dosync (alter *cd-client-mode* (fn [cur-val] {:source :web})))
   (println "Now retrieving clojuredocs data from web site" *clojuredocs-root*))
 
 
-(defn show-mode []
+(defn show-mode
+  "Print the mode you are in, local or web, for accessing
+  documentation with cdoc and other macros and functions in
+  cd-client.core.
+
+  See also: set-local-mode! set-web-mode!"
+  []
   (let [mode @*cd-client-mode*]
     (if (= :web (:source mode))
       (println "Web mode.  Data is retrieved from" *clojuredocs-root*)
@@ -173,7 +208,7 @@
 
 
 (defmacro examples
-  "Return examples from clojuredocs for a given (unquoted) var, fn, macro,
+  "Return examples from clojuredocs for a given unquoted var, fn, macro,
   special form, or a namespace and name (as strings).  Returns a map
   with a structure defined by the clojuredocs.org API.
 
@@ -195,8 +230,8 @@
 ;; saying that cd-client.core/pr-examples-core is not public.
 
 (defn pr-examples-core
-  "Given a namespace and name (as strings), pretty-print all the examples for it
-  from clojuredocs."
+  "Given a namespace and name (as strings), pretty-print all the
+  examples for it from clojuredocs."
   [ns name & verbose]
   (let [res (examples-core ns name)
         n (count (:examples res))]
@@ -219,8 +254,8 @@
 
 
 (defmacro pr-examples
-  "Given an (unquoted) var, fn, macro, special form, or a namespace
-  and name (as strings), pretty-print all the examples for it from
+  "Given an unquoted var, fn, macro, special form, or a namespace and
+  name (as strings), pretty-print all the examples for it from
   clojuredocs.
 
   See cdoc documentation for examples of the kinds of arguments that
@@ -234,13 +269,17 @@
 ;; TBD: Think about how to implement search when in local mode.
 
 (defn search
-  "Search for a method name within an (optional) namespace"
+  "Search for a method name within an (optional) namespace.
+
+  Note: This currently always attempts to access clojuredocs, even if
+  you have used set-local-mode!"
   ([name]    (get-simple (str *search-api* name)))
   ([ns name] (get-simple (str *search-api* ns "/" name))))
 
 
 (defn comments-core
-  "Return comments from clojuredocs for a given namespace and name (as strings)"
+  "Return comments from clojuredocs for a given namespace and name (as
+  strings)"
   [ns name]
   (let [mode @*cd-client-mode*]
     (if (= :web (:source mode))
@@ -250,7 +289,7 @@
 
 
 (defmacro comments
-  "Return comments from clojuredocs for a given (unquoted) var, fn, macro,
+  "Return comments from clojuredocs for a given unquoted var, fn, macro,
   special form, or namespace and name (as strings).  Returns nil if
   there are no comments, or a vector of maps with a structure defined
   by the clojuredocs.org API if there are comments.
@@ -289,7 +328,7 @@
 
 
 (defmacro pr-comments
-  "Given a (unquoted) var, fn, macro, special form, or a namespace and
+  "Given an unquoted var, fn, macro, special form, or a namespace and
   name (as strings), pretty-print all the comments for it from
   clojuredocs.
 
@@ -302,7 +341,8 @@
 
 
 (defn see-also-core
-  "Return 'see also' info from clojuredocs for a given namespace and name (as strings)"
+  "Return 'see also' info from clojuredocs for a given namespace and
+  name (as strings)"
   [ns name]
   (let [mode @*cd-client-mode*]
     (if (= :web (:source mode))
@@ -312,7 +352,7 @@
 
 
 (defmacro see-also
-  "Given a (unquoted) var, fn, macro, special form, or a namespace and
+  "Given an unquoted var, fn, macro, special form, or a namespace and
   name (as strings), show the 'see also' for it from clojuredocs.
   Returns nil if there are no 'see alsos', or a vector of maps with a
   structure defined by the clojuredocs.org API if there are comments.
@@ -344,7 +384,7 @@
 
 
 (defmacro pr-see-also
-  "Given a (unquoted) var, fn, macro, special form, or a namespace and
+  "Given an unquoted var, fn, macro, special form, or a namespace and
   name (as strings), pretty-print the 'see also' for it from
   clojuredocs.
 
@@ -366,9 +406,16 @@
 
 
 (defmacro cdoc
-  "Given a (unquoted) var, fn, macro, special form, or a namespace and
+  "Given an unquoted var, fn, macro, special form, or a namespace and
   name (as strings), show the Clojure documentation, and any examples,
   see also pointers, and comments available on clojuredocs.
+
+  By default, cdoc and its related functions and macros in
+  cd-client.core use the Internet to access clojuredocs.org at the
+  time you invoke them.  If you wish to work off line from a snapshot
+  file, use set-local-mode!
+
+  See also: set-local-mode! pr-examples browse-to
 
   Examples:
 
@@ -377,17 +424,16 @@
   (cdoc ->>)
 
   Just as for clojure.repl/doc, you may name a var, fn, or macro using
-  the full namespace/name, or any shorter version that you can use
-  given additions to the current namespace from prior calls to
-  require, use, refer, etc.
+  the full namespace/name, or any shorter version accessible due to
+  prior calls to require, use, refer, etc.
 
-  Thus the two cdoc invocations below give the same result:
+  Thus the two cdoc calls below give the same result:
 
   (cdoc clojure.string/join)
   (require '[clojure.string :as str])
   (cdoc str/join)
 
-  And all of the below give the same result:
+  And all of the cdoc calls below give the same result:
 
   (cdoc \"clojure.java.io\" \"reader\")
   (cdoc clojure.java.io/reader)
@@ -412,9 +458,13 @@
 
 
 (defmacro browse-to
-  "Given a (unquoted) var, fn, macro, or special form, or a namespace
+  "Given an unquoted var, fn, macro, or special form, or a namespace
   and name (as strings), open a browser to the clojuredocs page for
   it.
+
+  Note: This macro always attempts to access the Internet, even if you
+  have used set-local-mode!  Clojuredocs web page contents are not
+  saved in a snapshot file at this time.
 
   See cdoc documentation for examples of the kinds of arguments that
   can be given.  This macro can be given the same arguments as cdoc."
@@ -428,17 +478,20 @@
 ;; + examples, see also list, and comments
 ;; + DON'T get the Clojure documentation string.  Assume we have that
 ;; locally already.
-;;
-;; Use search-str "let" to get a partial snapshot, with only those
-;; names that contain "let".  This currently returns 39 results, so it
-;; is a nice smaller test case for development and debugging.
-;;
-;; Use search-str "" to get a full snapshot.  As of Mar 3, 2011 that
-;; is information on a little over 4000 names, requiring 3 API calls
-;; per name.  Best to ask permission before hitting the server with
-;; this kind of use.
 
-(defn make-snapshot [search-str fname & quiet]
+(defn make-snapshot
+  "Create a snapshot file that can be read in with set-local-mode!
+
+  Warning: Please consider using a snapshot file created by someone
+  else, since doing so using this function can take a long time (over
+  an hour), and if many people do so it could add significant load to
+  the clojuredocs server.
+
+  Examples:
+
+  (make-snapshot \"\" \"clojuredocs-snapshot-2011-12-03.txt\")
+  (make-snapshot \"let\" \"only-clojuredocs-symbols-containing-let.txt\")"
+  [search-str fname & quiet]
   (let [verbose (not quiet)
         all-names-urls (search search-str)
         junk (when verbose
