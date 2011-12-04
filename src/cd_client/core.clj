@@ -3,7 +3,8 @@
         [clojure.pprint :only [pprint]])
   (:require [cheshire.core :as json]
             [clj-http.client :as http]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [clojure.repl :as repl]))
 
 
 ;; For testing purposes use localhost:8080
@@ -37,16 +38,19 @@
 (defn set-local-mode! [fname]
   ;; TBD: Handle errors in attempting to open the file, or as returned
   ;; from read.
-  (let [data (with-open [s (java.io.PushbackReader.
+  (let [x (with-open [s (java.io.PushbackReader.
                             (java.io.InputStreamReader.
                              (java.io.FileInputStream.
                               (java.io.File. fname))))]
-               (read s))]
+            (read s))
+        data (:snapshot-info x)
+        snapshot-time (:snapshot-time x)]
     (dosync (alter *cd-client-mode*
                    (fn [cur-val]
-                     {:source :local-file, :filename fname, :data data})))
-    (println "Read info on" (count data) "names from local file")
-    (println fname)))
+                     {:source :local-file, :filename fname,
+                      :data data, :snapshot-time snapshot-time})))
+    (println "Read info on" (count data) "names from file:" fname)
+    (println "Snapshot time:" snapshot-time)))
 
 
 (defn set-web-mode! []
@@ -60,8 +64,8 @@
       (println "Web mode.  Data is retrieved from clojuredocs.org")
       (do
         (println "Local mode.  Data for" (count (:data mode))
-                 "names was retrieved from the file")
-        (println (:filename mode))))))
+                 "names was read from file:" (:filename mode))
+        (println "Snapshot time:" (:snapshot-time mode))))))
 
 
 (defn- fixup-name-url
@@ -267,6 +271,57 @@
      `(see-also-core ~ns ~name)))
 
 
+(defn pr-see-also-core
+  "Given a namespace and name (as strings), pretty-print all the
+  see-alsos for it from clojuredocs"
+  [ns name]
+  (let [res (see-also-core ns name)
+        n (count res)]
+    (when (not= n 0) (println "======================================== vvv"))
+    (doseq [sa res]
+      ;; TBD: Add in namespace if and when it is added as part of the
+      ;; see-also API results from the web site.
+      ;(println " " (str (:ns sa) "/" (:name sa)))
+      (println " " (:name sa)))
+    (when (not= n 0) (println "======================================== ^^^"))
+    (printf "%d see-also%s found for %s"
+            n (if (== 1 n) "" "s") (str ns "/" name))
+    (println)))
+
+
+(defmacro pr-see-also
+  "Given a (unquoted) var, fn, macro, special form, or a namespace and
+  name (as strings), pretty-print the 'see also' for it from
+  clojuredocs"
+  ([name]
+     `(handle-fns-etc ~name pr-see-also-core))
+  ([ns name]
+     `(pr-see-also-core ~ns ~name)))
+
+
+(defn cdoc-core
+  [ns name]
+  (pr-examples-core ns name)
+  (println)
+  (pr-see-also-core ns name)
+  (println)
+  (pr-comments-core ns name))
+
+
+(defmacro cdoc
+  "Given a (unquoted) var, fn, macro, special form, or a namespace and
+  name (as strings), show the Clojure documentation, and any examples,
+  see also pointers, and comments available on clojuredocs.org"
+  ([name]
+     `(do
+        (repl/doc ~name)
+        (handle-fns-etc ~name cdoc-core)))
+  ([ns name]
+     `(do
+        (repl/doc ~(symbol ns name))
+        (cdoc-core ~ns ~name))))
+
+
 (defn browse-to-core
   "Open a browser to the clojuredocs page for a given namespace and name
   (as strings)"
@@ -340,4 +395,5 @@
                    (java.io.BufferedOutputStream.
                     (java.io.FileOutputStream. fname)))]
       (binding [*out* f]
-        (pprint all-info-map)))))
+        (pprint {:snapshot-time (str (java.util.Date.)),
+                 :snapshot-info all-info-map })))))
