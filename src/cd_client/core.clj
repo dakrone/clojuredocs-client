@@ -52,7 +52,7 @@
 
   A snapshot file is available here:
 
-  http://github.com/jafingerhut/cd-client/TBD
+  http://github.com/jafingerhut/cd-client/blob/develop/clojuredocs-snapshot-2011-12-03.txt?raw=true
 
   Example:
 
