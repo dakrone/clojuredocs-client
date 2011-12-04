@@ -4,6 +4,7 @@
   (:require [cheshire.core :as json]
             [clj-http.client :as http]
             [clojure.string :as string]
+            [clojure.java.io :as io]
             [clojure.repl :as repl]))
 
 
@@ -61,10 +62,7 @@
   Snapshot time: Sat Dec 03 18:03:43 PST 2011
   nil"
   [fname]
-  (let [x (with-open [s (java.io.PushbackReader.
-                            (java.io.InputStreamReader.
-                             (java.io.FileInputStream.
-                              (java.io.File. fname))))]
+  (let [x (with-open [s (java.io.PushbackReader. (io/reader fname))]
             (read s))
         data (:snapshot-info x)
         snapshot-time (:snapshot-time x)]
@@ -494,9 +492,9 @@
   [search-str fname & quiet]
   (let [verbose (not quiet)
         all-names-urls (search search-str)
-        junk (when verbose
-               (println "Retrieved basic information for" (count all-names-urls)
-                        "names.  Getting full details..."))
+        _ (when verbose
+            (println "Retrieved basic information for" (count all-names-urls)
+                     "names.  Getting full details..."))
         all-info (doall
                   (map (fn [{ns :ns, name :name, :as m}]
                          ;; Make each of ex, sa, and com always a
@@ -505,22 +503,22 @@
                          ;; examples and a URL.  We discard the URL
                          ;; here, since it is already available in
                          ;; all-names-urls.
-                         (let [junk (when verbose
-                                      (print (str ns "/" name) " examples:")
-                                      (flush))
+                         (let [_ (when verbose
+                                   (print (str ns "/" name) " examples:")
+                                   (flush))
                                ex (if-let [x (examples ns name)]
                                     (:examples x)
                                     [])
-                               junk (when verbose
-                                      (print (count ex) " see-alsos:")
-                                      (flush))
+                               _ (when verbose
+                                   (print (count ex) " see-alsos:")
+                                   (flush))
                                sa (if-let [x (see-also ns name)] x [])
-                               junk (when verbose
-                                      (print (count sa) " comments:")
-                                      (flush))
+                               _ (when verbose
+                                   (print (count sa) " comments:")
+                                   (flush))
                                com (if-let [x (comments ns name)] x [])
-                               junk (when verbose
-                                      (println (count com)))]
+                               _ (when verbose
+                                   (println (count com)))]
                            (assoc m :examples ex :see-alsos sa :comments com)))
                        all-names-urls))
         all-info-map (reduce (fn [big-map one-name-info]
@@ -529,9 +527,7 @@
                                       (:name one-name-info))
                                  one-name-info))
                              {} all-info)]
-    (with-open [f (java.io.OutputStreamWriter.
-                   (java.io.BufferedOutputStream.
-                    (java.io.FileOutputStream. fname)))]
+    (with-open [f (io/writer fname)]
       (binding [*out* f]
         (pprint {:snapshot-time (str (java.util.Date.)),
                  :snapshot-info all-info-map })))))
