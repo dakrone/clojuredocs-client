@@ -36,8 +36,8 @@
 
 
 (defn set-local-mode! [fname]
-  ;; TBD: Handle errors in attempting to open the file, or as returned
-  ;; from read.
+  ;; Handle errors in attempting to open the file, or as returned from
+  ;; read?
   (let [x (with-open [s (java.io.PushbackReader.
                             (java.io.InputStreamReader.
                              (java.io.FileInputStream.
@@ -55,29 +55,30 @@
 
 (defn set-web-mode! []
   (dosync (alter *cd-client-mode* (fn [cur-val] {:source :web})))
-  (println "Now retrieving clojuredocs data from web site clojuredocs.org"))
+  (println "Now retrieving clojuredocs data from web site" *clojuredocs-root*))
 
 
 (defn show-mode []
   (let [mode @*cd-client-mode*]
     (if (= :web (:source mode))
-      (println "Web mode.  Data is retrieved from clojuredocs.org")
+      (println "Web mode.  Data is retrieved from" *clojuredocs-root*)
       (do
         (println "Local mode.  Data for" (count (:data mode))
                  "names was read from file:" (:filename mode))
         (println "Snapshot time:" (:snapshot-time mode))))))
 
 
+;; Rather than adding things here as the crop up, it might be better
+;; to replace everything that is not on a short list of "known good"
+;; characters.  Here are the ones that seem to work fine so far,
+;; without substitution in the API URLs:
+;;
+;; a-z  A-Z  0-9  - * ? ! _ = $
+
 (defn- fixup-name-url
   "Replace some special characters in symbol names in order to construct a URL
   that works on clojuredocs.org"
   [name]
-  ;; TBD: Rather than adding things here as the crop up, it might be
-  ;; better to replace everything that is not on a short list of
-  ;; "known good" characters.  Here are the ones that seem to work
-  ;; fine so far, without substitution in the API URLs:
-  ;; a-z  A-Z  0-9  - * ? ! _ = $
-  ;; I'm not sure if / and + are working right now (Mar 3 2011)
   (string/escape name
                  { \. "_dot",
                    \? "%3F",
@@ -107,8 +108,7 @@
 (defn- vec-drop-last-while
   "Like drop-while, but only for vectors, and only removes consecutive
   items from the end that make (pred item) true.  Unlike drop-while,
-  items for which (pred item) returns nil or false will be removed
-  from the end."
+  items for which (pred item) returns nil or false will be removed."
   [pred v]
   (loop [i (dec (count v))]
     (if (neg? i)
@@ -174,7 +174,11 @@
 
 (defmacro examples
   "Return examples from clojuredocs for a given (unquoted) var, fn, macro,
-  special form, or a namespace and name (as strings)"
+  special form, or a namespace and name (as strings).  Returns a map
+  with a structure defined by the clojuredocs.org API.
+
+  See cdoc documentation for examples of the kinds of arguments that
+  can be given.  This macro can be given the same arguments as cdoc."
   ([name]
      `(handle-fns-etc ~name examples-core))
   ([ns name]
@@ -192,7 +196,7 @@
 
 (defn pr-examples-core
   "Given a namespace and name (as strings), pretty-print all the examples for it
-  from clojuredocs"
+  from clojuredocs."
   [ns name & verbose]
   (let [res (examples-core ns name)
         n (count (:examples res))]
@@ -215,8 +219,12 @@
 
 
 (defmacro pr-examples
-  "Given an (unquoted) var, fn, macro, special form, or a namespace and name (as
-  strings), pretty-print all the examples for it from clojuredocs"
+  "Given an (unquoted) var, fn, macro, special form, or a namespace
+  and name (as strings), pretty-print all the examples for it from
+  clojuredocs.
+
+  See cdoc documentation for examples of the kinds of arguments that
+  can be given.  This macro can be given the same arguments as cdoc."
   ([name]
      `(handle-fns-etc ~name pr-examples-core))
   ([ns name]
@@ -243,7 +251,12 @@
 
 (defmacro comments
   "Return comments from clojuredocs for a given (unquoted) var, fn, macro,
-  special form, or namespace and name (as strings)"
+  special form, or namespace and name (as strings).  Returns nil if
+  there are no comments, or a vector of maps with a structure defined
+  by the clojuredocs.org API if there are comments.
+
+  See cdoc documentation for examples of the kinds of arguments that
+  can be given.  This macro can be given the same arguments as cdoc."
   ([name]
      `(handle-fns-etc ~name comments-core))
   ([ns name]
@@ -276,8 +289,12 @@
 
 
 (defmacro pr-comments
-  "Given a (unquoted) var, fn, macro, special form, or a namespace and name (as
-  strings), pretty-print all the comments for it from clojuredocs"
+  "Given a (unquoted) var, fn, macro, special form, or a namespace and
+  name (as strings), pretty-print all the comments for it from
+  clojuredocs.
+
+  See cdoc documentation for examples of the kinds of arguments that
+  can be given.  This macro can be given the same arguments as cdoc."
   ([name]
      `(handle-fns-etc ~name pr-comments-core))
   ([ns name]
@@ -295,8 +312,13 @@
 
 
 (defmacro see-also
-  "Given a (unquoted) var, fn, macro, special form, or a namespace and name (as
-  strings), show the 'see also' for it from clojuredocs"
+  "Given a (unquoted) var, fn, macro, special form, or a namespace and
+  name (as strings), show the 'see also' for it from clojuredocs.
+  Returns nil if there are no 'see alsos', or a vector of maps with a
+  structure defined by the clojuredocs.org API if there are comments.
+
+  See cdoc documentation for examples of the kinds of arguments that
+  can be given.  This macro can be given the same arguments as cdoc."
   ([name]
      `(handle-fns-etc ~name see-also-core))
   ([ns name]
@@ -324,7 +346,10 @@
 (defmacro pr-see-also
   "Given a (unquoted) var, fn, macro, special form, or a namespace and
   name (as strings), pretty-print the 'see also' for it from
-  clojuredocs"
+  clojuredocs.
+
+  See cdoc documentation for examples of the kinds of arguments that
+  can be given.  This macro can be given the same arguments as cdoc."
   ([name]
      `(handle-fns-etc ~name pr-see-also-core))
   ([ns name]
@@ -343,7 +368,31 @@
 (defmacro cdoc
   "Given a (unquoted) var, fn, macro, special form, or a namespace and
   name (as strings), show the Clojure documentation, and any examples,
-  see also pointers, and comments available on clojuredocs.org"
+  see also pointers, and comments available on clojuredocs.
+
+  Examples:
+
+  (cdoc *)
+  (cdoc catch)
+  (cdoc ->>)
+
+  Just as for clojure.repl/doc, you may name a var, fn, or macro using
+  the full namespace/name, or any shorter version that you can use
+  given additions to the current namespace from prior calls to
+  require, use, refer, etc.
+
+  Thus the two cdoc invocations below give the same result:
+
+  (cdoc clojure.string/join)
+  (require '[clojure.string :as str])
+  (cdoc str/join)
+
+  And all of the below give the same result:
+
+  (cdoc \"clojure.java.io\" \"reader\")
+  (cdoc clojure.java.io/reader)
+  (use 'clojure.java.io)
+  (cdoc reader)"
   ([name]
      `(do
         (repl/doc ~name)
@@ -363,8 +412,12 @@
 
 
 (defmacro browse-to
-  "Given a (unquoted) var, fn, macro, or special form, or a namespace and name
-  (as strings), open a browser to the clojuredocs page for it"
+  "Given a (unquoted) var, fn, macro, or special form, or a namespace
+  and name (as strings), open a browser to the clojuredocs page for
+  it.
+
+  See cdoc documentation for examples of the kinds of arguments that
+  can be given.  This macro can be given the same arguments as cdoc."
   ([name]
      `(handle-fns-etc ~name browse-to-core))
   ([ns name]
