@@ -10,9 +10,8 @@ Examples work with strings for the ns and name, as well as just a
 symbol (no quoting needed -- it will not work if you do).  The symbol
 can be of a special form (e.g. let, try, catch), macros (e.g. for,
 areduce), or functions.  Use 'cdoc' to pretty-print the normal Clojure
-doc string, followed by the following information from
-clojuredocs.org, if available: examples, see-also list of symbols, and
-comment.
+doc string and the following information from clojuredocs.org:
+examples, see-also list of symbols, and comment.
 
     (cdoc "clojure.core" "map")
     (cdoc map)
