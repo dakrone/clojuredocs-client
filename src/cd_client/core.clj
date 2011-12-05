@@ -17,6 +17,8 @@
 (def ^:private ^:dynamic *comments-api* (str *clojuredocs-root* "/comments/"))
 (def ^:private ^:dynamic *seealso-api*  (str *clojuredocs-root* "/see-also/"))
 
+(def ^:private ^:dynamic *screen-width* 72)
+
 
 (def ^:private ^:dynamic *debug-flags* (ref #{}))
 
@@ -125,8 +127,12 @@
   "Remove basic markdown syntax from a string."
   [text]
   (-> text
-      (.replaceAll "<pre>" "")
-      (.replaceAll "</pre>" "")
+      (.replaceAll "<pre>" "\n")
+      (.replaceAll "</pre>" "\n")
+      (.replaceAll "<code>" "")
+      (.replaceAll "</code>" "")
+      (.replaceAll "<b>" "")
+      (.replaceAll "</b>" "")
       (.replaceAll "<p>" "")
       (.replaceAll "</p>" "")
       (.replaceAll "&gt;" ">")
@@ -149,6 +155,48 @@
       (if (pred (v i))
         (recur (dec i))
         (subvec v 0 (inc i))))))
+
+
+
+(defn wrap-line
+  "Given a string 'line' that is assumed not contain line separators,
+  but may contain spaces and tabs, return a sequence of strings where
+  each is at most width characters long, and all 'words' (consecutive
+  sequences of non-whitespace characters) are kept together in the
+  same line.  The only exception to the maximum width are if a single
+  word is longer than width, in which case it is kept together on one
+  line.  Whitespace in the original string is kept except it is
+  removed from the end and where lines are broken.  As a special case,
+  any whitespace before the first word is preserved.  The second and
+  all later lines will always begin with a non-whitespace character."
+  [line width]
+  (let [space-plus-words (map first (re-seq #"(\s*\S+)|(\s+)"
+                                            (string/trimr line)))]
+    (loop [finished-lines []
+           partial-line []
+           len 0
+           remaining-words (seq space-plus-words)]
+      (if-let [word (first remaining-words)]
+        (if (zero? len)
+          ;; Special case for first word of first line.  Keep it as
+          ;; is, including any leading whitespace it may have.
+          (recur finished-lines [ word ] (count word) (rest remaining-words))
+          (let [word-len (count word)
+                len-if-append (+ len word-len)]
+            (if (<= len-if-append width)
+              (recur finished-lines (conj partial-line word) len-if-append
+                     (rest remaining-words))
+              ;; else we're done with current partial-line and need to
+              ;; start a new one.  Trim leading whitespace from word,
+              ;; which will be the first word of the next line.
+              (let [trimmed-word (string/triml word)]
+                (recur (conj finished-lines (apply str partial-line))
+                       [ trimmed-word ]
+                       (count trimmed-word)
+                       (rest remaining-words))))))
+        (if (zero? len)
+          [ "" ]
+          (conj finished-lines (apply str partial-line)))))))
 
 
 (defn- trim-line-list
@@ -301,8 +349,8 @@
 
 
 (defn pr-comments-core
-  "Given a namespace and name (as strings), pretty-print all the comments for it
-  from clojuredocs"
+  "Given a namespace and name (as strings), pretty-print all the
+  comments for it from clojuredocs"
   [ns name & verbose]
   (let [res (comments-core ns name)
         n (count res)]
@@ -312,9 +360,10 @@
         (when (not= i 0)    ; this line is a separator between comments
           (println "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"))
         (println " " (string/join "\n  "
-                                  (-> (remove-markdown (:body ex))
-                                      (string/replace #"\r" "")
-                                      (trim-line-list))))
+                                  (mapcat #(wrap-line % *screen-width*)
+                                          (-> (remove-markdown (:body ex))
+                                              (string/replace #"\r" "")
+                                              (trim-line-list)))))
         (when verbose
           (println "  *** Last Updated:" (:updated_at ex)))))
     (when (not= n 0) (println "========== ^^^ Comments ================"))
