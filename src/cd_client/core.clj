@@ -513,6 +513,10 @@
   have used set-local-mode!  Clojuredocs web page contents are not
   saved in a snapshot file at this time.
 
+  In web mode, there is currently a bug where browse-to will fail if
+  you attempt to browse to a symbol that does not have any examples on
+  clojuredocs.
+
   See cdoc documentation for examples of the kinds of arguments that
   can be given.  This macro can be given the same arguments as cdoc."
   ([name]
