@@ -3,6 +3,7 @@
         [clojure.pprint :only [pprint]])
   (:require [cheshire.core :as json]
             [clj-http.client :as http]
+            [clj-http.util :as util]
             [clojure.string :as string]
             [clojure.java.io :as io]
             [clojure.repl :as repl]))
@@ -111,16 +112,11 @@
 ;; a-z  A-Z  0-9  - * ? ! _ = $
 
 (defn- fixup-name-url
-  "Replace some special characters in symbol names in order to construct a URL
-  that works on clojuredocs.org"
+  "Replace some special characters in symbol names in order to
+  construct a URL that works on clojuredocs.org, then do normal URL
+  encoding on any remaining characters that need it."
   [name]
-  (string/escape name
-                 { \. "_dot",
-                   \? "%3F",
-                   \/ "_",
-                   \> "%3E",
-                   \< "%3C",
-                   \| "%7C" }))
+  (util/url-encode (string/escape name { \. "_dot", \/ "_" })))
 
 
 (defn- remove-markdown
@@ -155,7 +151,6 @@
       (if (pred (v i))
         (recur (dec i))
         (subvec v 0 (inc i))))))
-
 
 
 (defn wrap-line
@@ -312,15 +307,81 @@
      `(pr-examples-core ~ns ~name)))
 
 
-;; TBD: Think about how to implement search when in local mode.
+(defn- search-local-core
+  "Helper for search-core specific to local mode."
+  [ns str-or-pattern data]
+  (let [matches? (if (instance? java.util.regex.Pattern str-or-pattern)
+                   #(re-find str-or-pattern (str %))
+                   #(.contains (str %) (str str-or-pattern)))]
+    (filter (fn [{symbol-ns :ns, symbol-name :name}]
+              (and (or (nil? ns) (= symbol-ns ns))
+                   (matches? symbol-name)))
+            (vals data))))
+
+
+(defn search-core
+  "Handles either an exact substring match if str-or-pattern is a
+  string, or a regex search if it is a regex.  This string or pattern
+  matching is restricted to the symbol name by itself, apart from its
+  namespace name.  ns can be nil indicating that the search should be
+  performed in all namespaces, or it can be a string containing the
+  name of a single namespace in which the search should be restricted.
+
+  Returns sequence of maps, one per symbol found.  Note that web site
+  can return more than one such map for the same symbol, e.g. one for
+  Clojure 1.2 and another for Clojure 1.3."
+  [ns str-or-pattern]
+  (let [mode @*cd-client-mode*]
+    (if (= :web (:source mode))
+      (get-simple (str *search-api*
+                       (if (nil? ns) "" (str ns "/"))
+                       (fixup-name-url str-or-pattern)))
+      (search-local-core ns str-or-pattern (:data mode)))))
+
 
 (defn search
+  "Search for symbols whose names contain a specified string, or in
+  local mode, symbols whose names match a specified regex pattern.
+  With a single argument, all symbols in known namespaces are
+  searched.  With two arguments, only the namespace whose name is
+  specified by the string ns is searched.
+
+  Examples:
+
+  (search \"split\")      ; symbol name contains 'split'
+  (search \">\")          ; contains '>'
+  (search \"clojure.core\" \"with\") ; contains 'with' and is in
+                                     ; namespace clojure.core
+
+  In local mode, you can do regex searches.  Regex searches are not
+  supported by the clojuredocs web site search API at this time.
+
+  (search \"clojure.core\" \"^with\") ; begins with 'with' and is in
+                                      ; namespace clojure.core
+  (search #\"sp[al]\")    ; symbol name contains 'sp' followed by 'a' or 'l'
+  (search #\"let$\")      ; ends with 'let'
+  (search #\"(?i)array\") ; symbol name contains 'array', matched
+                          ; case-insensitively"
+  ([str-or-pattern] (search nil str-or-pattern))
+  ([ns str-or-pattern]
+     (let [mode @*cd-client-mode*]
+       (if (and (= :web (:source mode))
+                (instance? java.util.regex.Pattern str-or-pattern))
+         (println "Regex searches only supported in local mode.")
+         (let [results (search-core ns str-or-pattern)
+               fullnames (map #(str (:ns %) "/" (:name %)) results)
+               fullnames-uniq (set fullnames)]
+           (println (string/join "\n" (sort fullnames-uniq)))
+           (println (count fullnames-uniq) "matches found"))))))
+
+
+(defn search-data
   "Search for a method name within an (optional) namespace.
 
   Note: This currently always attempts to access clojuredocs, even if
   you have used set-local-mode!"
   ([name]    (get-simple (str *search-api* name)))
-  ([ns name] (get-simple (str *search-api* ns "/" name))))
+  ([ns name] (get-simple (str *search-api* ns "/" (fixup-name-url name)))))
 
 
 (defn comments-core
@@ -462,7 +523,7 @@
   time you invoke them.  If you wish to work off line from a snapshot
   file, use set-local-mode!
 
-  See also: set-local-mode! pr-examples browse-to
+  See also: set-local-mode! browse-to search
 
   Examples:
 
