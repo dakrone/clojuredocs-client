@@ -11,7 +11,7 @@ symbol (no quoting needed -- it will not work if you do).  The symbol
 can be of a special form (e.g. let, try, catch), macros (e.g. for,
 areduce), or functions.  Use 'cdoc' to pretty-print the normal Clojure
 doc string and the following information from clojuredocs.org:
-examples, see-also list of symbols, and comment.
+examples, see-also list of symbols, and comments.
 
     (cdoc "clojure.core" "map")
     (cdoc map)
