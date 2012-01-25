@@ -47,7 +47,7 @@ Browse to the url for a method in your default browser:
 
 For Leiningen:
 
-    [org.thnetos/cd-client "0.3.1"]
+    [org.thnetos/cd-client "0.3.2"]
 
 ## Installation
 
