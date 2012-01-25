@@ -62,7 +62,11 @@
         `(call-with-ns-and-name ~fn (var ~name))))))
 
 (defn- get-simple [url]
-  (json/decode (:body (http/get url {:accept-encoding ""})) true))
+  (-> url
+      (http/get {:accept-encoding ""})
+      :body
+      (.replaceAll "\\\\r" "")
+      (json/decode true)))
 
 (defn examples-core
   "Return examples from clojuredocs for a given namespace and name (as strings)"
