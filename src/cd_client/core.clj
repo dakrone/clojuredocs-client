@@ -21,6 +21,7 @@
   that works on clojuredocs.org"
   [name]
   (-> name
+      URLEncoder/encode
       (string/replace "." "_dot")
       (string/replace "?" "_q")
       (string/replace "/" "_")))
