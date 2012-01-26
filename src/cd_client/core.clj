@@ -2,7 +2,8 @@
   (:use [clojure.java.browse :only [browse-url]])
   (:require [cheshire.core :as json]
             [clj-http.client :as http]
-            [clojure.string :as string]))
+            [clojure.string :as string])
+  (:import java.net.URLEncoder))
 
 
 ;; For testing purposes use localhost:8080
@@ -20,6 +21,7 @@
   that works on clojuredocs.org"
   [name]
   (-> name
+      URLEncoder/encode
       (string/replace "." "_dot")
       (string/replace "?" "_q")
       (string/replace "/" "_")))
@@ -114,8 +116,8 @@
 
 (defn search
   "Search for a method name within an (optional) namespace"
-  ([name]    (get-simple (str *search-api* name)))
-  ([ns name] (get-simple (str *search-api* ns "/" name))))
+  ([name]    (get-simple (str *search-api* (URLEncoder/encode (str name)))))
+  ([ns name] (get-simple (str *search-api* ns "/" (URLEncoder/encode (str name))))))
 
 
 (defn comments-core
