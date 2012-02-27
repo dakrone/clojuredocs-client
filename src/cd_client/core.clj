@@ -557,6 +557,25 @@
         (cdoc-core ~ns ~name))))
 
 
+(defmacro cdir
+  "Like clojure.repl/dir, except if you are in local mode, also prints
+the number of examples, see-alsos, and comments that each symbol has
+in the local snapshot."
+  [nsname]
+  (let [mode @*cd-client-mode*]
+    (if (= :local-file (:source mode))
+      (do
+        (printf "Exa See Com Symbol\n")
+        (printf "--- --- --- -------------\n")
+        `(doseq [v# (repl/dir-fn '~nsname)]
+           (printf "%3d %3d %3d %s\n"
+                   (count (:examples (examples-core '~nsname v#)))
+                   (count (see-also-core '~nsname v#))
+                   (count (comments-core '~nsname v#))
+                   v#)))
+      `(repl/dir ~nsname))))
+
+
 (defn browse-to-core
   "Open a browser to the clojuredocs page for a given namespace and name
   (as strings)"
@@ -605,7 +624,7 @@
   (make-snapshot \"let\" \"only-clojuredocs-symbols-containing-let.txt\")"
   [search-str fname & quiet]
   (let [verbose (not quiet)
-        all-names-urls (search search-str)
+        all-names-urls (search-core nil search-str)
         _ (when verbose
             (println "Retrieved basic information for" (count all-names-urls)
                      "names.  Getting full details..."))
@@ -645,3 +664,95 @@
       (binding [*out* f]
         (pprint {:snapshot-time (str (java.util.Date.)),
                  :snapshot-info all-info-map })))))
+
+
+(defn ^String ns-name-of-full-sym-name
+  [^String s]
+  (if-let [[_ ns-name] (re-find #"^([\D&&[^/]].*)/(/|[\D&&[^/]][^/]*)$" s)]
+    ns-name))
+
+
+(defn example-counts
+  [sym-name-data-pairs]
+  (map #(count (:examples (val %))) sym-name-data-pairs))
+
+
+(defn print-snapshot-stats
+  "When in local mode, show a summary of all namespaces in the
+snapshot that have at least one example for one of its symbols.  Below
+is an example of the output.
+
+ #   # syms  % syms  avg / max
+ of   with    with   examples
+syms examps examples per sym   Namespace
+---- ------ -------- --------- -----------------------
+[ ... many lines deleted here ... ]
+ 596    442    74.2%    1.5  7 clojure.core
+   4      1    25.0%    1.0  1 clojure.data
+  13      1     7.7%    1.0  1 clojure.inspector
+[ ... many lines deleted here ... ]
+---- ------ -------- --------- -----------------------
+1419    563    39.7%
+
+Printed stats for 51 namespaces (200 others with a total of 2155 symbols have no examples)"
+  []
+  (let [mode @*cd-client-mode*]
+    (if (not= :local-file (:source mode))
+      (do
+        (println "Must be in local mode to print snapshot statistics.  Currently in:")
+        (show-mode))
+      (let [{:keys [data filename snapshot-time]} mode
+            total-num-syms (count data)
+            data-by-ns (group-by #(ns-name-of-full-sym-name (key %)) data)
+            nss-with-at-least-1-example
+            (->> (keys data-by-ns)
+                 (map (fn [ns]
+                        [ns (example-counts (get data-by-ns ns))]))
+                 (filter (fn [[ns ex-counts]]
+                           (pos? (count (remove zero? ex-counts)))))
+                 (map first))]
+        (printf " #   # syms  %% syms  avg / max\n")
+        (printf " of   with    with   examples\n")
+        (printf "syms examps examples per sym   Namespace\n")
+        (printf "---- ------ -------- --------- -----------------------\n")
+        (doseq [ns-name (sort nss-with-at-least-1-example)]
+          (let [all-syms (get data-by-ns ns-name)
+                ex-counts (example-counts all-syms)
+                at-least-1-ex-counts (remove zero? ex-counts)]
+            (when (pos? (count at-least-1-ex-counts))
+              (printf "%4d %6d %8s %6s %2d %s"
+                      (count all-syms)
+                      (count at-least-1-ex-counts)
+                      (let [n (count all-syms)]
+                        (if (zero? n)
+                          (format "%8s" "N/A")
+                          (format "%7.1f%%"
+                                  (* 100.0 (/ (count at-least-1-ex-counts) n)))))
+                      (let [n (count at-least-1-ex-counts)]
+                        (if (zero? n)
+                          (format "%6s" "N/A")
+                          (format "%6.1f"
+                                  (double (/ (reduce + 0 at-least-1-ex-counts)
+                                             n)))))
+                      (apply max ex-counts)
+                      ns-name)
+              (printf "\n"))))
+        (printf "---- ------ -------- --------- -----------------------\n")
+        (let [num-syms-shown (reduce + 0
+                                     (map #(count (get data-by-ns %))
+                                          nss-with-at-least-1-example))
+              num-at-least-1-ex (reduce + 0
+                                        (map #(count
+                                               (remove zero?
+                                                       (example-counts
+                                                        (get data-by-ns %))))
+                                             nss-with-at-least-1-example))]
+          (printf "%4d %6d %7.1f%%\n"
+                  num-syms-shown
+                  num-at-least-1-ex
+                  (* 100.0 (/ num-at-least-1-ex num-syms-shown)))
+          (printf "\n")
+          (printf "Printed stats for %d namespaces (%d others with a total of %d symbols have no examples)\n"
+                  (count nss-with-at-least-1-example)
+                  (- (count data-by-ns) (count nss-with-at-least-1-example))
+                  (- total-num-syms num-syms-shown)))))))
