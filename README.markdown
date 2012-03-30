@@ -43,7 +43,7 @@ current mode with (show-mode).
 
 For Leiningen:
 
-    [org.thnetos/cd-client "0.3.3"]
+    [org.thnetos/cd-client "0.3.4"]
 
 ## Installation
 
