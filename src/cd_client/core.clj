@@ -225,7 +225,7 @@
 (defn- get-simple [url]
   (when (:show-urls @*debug-flags*)
     (println "get-simple getting URL" url))
-  (let [http-resp (http/get url {:accept-encoding ""})]
+  (let [http-resp (http/get url {:decompress-body false})]
     (when (:show-http-resp @*debug-flags*)
       (println "get-simple HTTP response" http-resp))
     (-> http-resp
