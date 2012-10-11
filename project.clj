@@ -1,4 +1,4 @@
-(defproject org.thnetos/cd-client "0.3.6"
+(defproject org.thnetos/cd-client "0.3.7-SNAPSHOT"
   :url "https://github.com/dakrone/clojuredocs-client"
   :description "A client for the clojuredocs API"
   :dependencies [[clj-http-lite "0.2.0"]
