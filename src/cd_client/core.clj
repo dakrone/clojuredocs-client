@@ -2,8 +2,8 @@
   (:use [clojure.java.browse :only [browse-url]]
         [clojure.pprint :only [pprint]])
   (:require [cheshire.core :as json]
-            [clj-http.client :as http]
-            [clj-http.util :as util]
+            [clj-http.lite.client :as http]
+            [clj-http.lite.util :as util]
             [clojure.string :as string]
             [clojure.java.io :as io]
             [clojure.repl :as repl]))
@@ -225,7 +225,7 @@
 (defn- get-simple [url]
   (when (:show-urls @*debug-flags*)
     (println "get-simple getting URL" url))
-  (let [http-resp (http/get url {:decompress-body false})]
+  (let [http-resp (http/get url {:headers {"accept-encoding" ""}})]
     (when (:show-http-resp @*debug-flags*)
       (println "get-simple HTTP response" http-resp))
     (-> http-resp
